@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,7 +17,7 @@ import (
 )
 
 type protectSet interface {
-	Protect(int) bool
+	Protect(int) int
 }
 
 type resolved struct {
@@ -55,12 +56,11 @@ func (r *resolved) NextIP() {
 		r.ipIdx = 0
 	}
 
-	log.Printf("switched to next IP: %v", r.IPs[r.ipIdx])
+	cur := r.currentIP()
+	log.Printf("switched to next IP: %s", cur)
 }
 
 func (r *resolved) currentIP() net.IP {
-	r.ipLock.Lock()
-	defer r.ipLock.Unlock()
 	if len(r.IPs) > 0 {
 		return r.IPs[r.ipIdx]
 	}
@@ -82,7 +82,6 @@ func NewPreotectedDialer(p protectSet) *ProtectedDialer {
 type ProtectedDialer struct {
 	currentServer string
 	resolveChan   chan struct{}
-	preferIPv6    bool
 
 	vServer  *resolved
 	resolver *net.Resolver
@@ -136,15 +135,6 @@ func (d *ProtectedDialer) lookupAddr(addr string) (*resolved, error) {
 	for i, ia := range addrs {
 		IPs[i] = ia.IP
 	}
-	// LookupIPAddr returns a slice of IPs with IPv6 addrs in front,
-	// if user perfer not IPv6, revert the result so that IPv4 addr comes first
-	if !d.preferIPv6 && len(IPs) > 1 && IPs[0].To4() == nil && IPs[len(IPs)-1].To4() != nil {
-		for i := len(IPs)/2 - 1; i >= 0; i-- {
-			opp := len(IPs) - 1 - i
-			IPs[i], IPs[opp] = IPs[opp], IPs[i]
-		}
-		log.Printf("PrepareDomain Prefer NOT IPv6 %v\n", IPs)
-	}
 
 	rs := &resolved{
 		domain: host,
@@ -156,10 +146,9 @@ func (d *ProtectedDialer) lookupAddr(addr string) (*resolved, error) {
 }
 
 // PrepareDomain caches direct v2ray server host
-func (d *ProtectedDialer) PrepareDomain(domainName string, closeCh <-chan struct{}, prefIPv6 bool) {
+func (d *ProtectedDialer) PrepareDomain(domainName string, closeCh <-chan struct{}) {
 	log.Printf("Preparing Domain: %s", domainName)
 	d.currentServer = domainName
-	d.preferIPv6 = prefIPv6
 
 	defer close(d.resolveChan)
 	maxRetry := 10
@@ -211,7 +200,7 @@ func (d *ProtectedDialer) Dial(ctx context.Context,
 	// v2ray server address,
 	// try to connect fixed IP if multiple IP parsed from domain,
 	// and switch to next IP if error occurred
-	if Address == d.currentServer {
+	if strings.Compare(Address, d.currentServer) == 0 {
 		if d.vServer == nil {
 			log.Println("Dial pending prepare  ...", Address)
 			<-d.resolveChan
@@ -260,10 +249,7 @@ func (d *ProtectedDialer) fdConn(ctx context.Context, ip net.IP, port int, fd in
 	defer unix.Close(fd)
 
 	// call android VPN service to "protect" the fd connecting straight out
-	if !d.Protect(fd) {
-		log.Printf("fdConn fail to protect, Close Fd: %d", fd)
-		return nil, errors.New("fail to protect")
-	}
+	d.Protect(fd)
 
 	sa := &unix.SockaddrInet6{
 		Port: port,
