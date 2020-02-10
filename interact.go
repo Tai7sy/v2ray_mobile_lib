@@ -11,7 +11,7 @@ import (
 	"github.com/Tai7sy/v2ray_mobile_lib/CoreI"
 	"github.com/Tai7sy/v2ray_mobile_lib/Process/Escort"
 	"github.com/Tai7sy/v2ray_mobile_lib/VPN"
-	"github.com/Tai7sy/v2ray_mobile_lib/tun2socksBinary"
+	"github.com/Tai7sy/v2ray_mobile_lib/tun2socksBinarys"
 	mobasset "golang.org/x/mobile/asset"
 
 	v2core "v2ray.com/core"
@@ -225,7 +225,7 @@ func NewV2RayPoint(s V2RayVPNServiceSupportsSet) *V2RayPoint {
 }
 
 func (v V2RayPoint) runTun2socks() error {
-	shipb := tun2socksBinary.FirstRun{Status: v.status}
+	shipb := tun2socksBinarys.FirstRun{Status: v.status}
 	if err := shipb.CheckAndExport(); err != nil {
 		log.Println(err)
 		return err
