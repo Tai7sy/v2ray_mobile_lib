@@ -10,10 +10,10 @@ goDeps:
 	gomobile init
 	# go get -u github.com/golang/protobuf/protoc-gen-go
 
-tun2socksBinarys:
+tun2socksBinaryDeps:
 	cd tun2socksBinarys; $(MAKE) binarys
 
-init_env: clean goDeps tun2socksBinarys
+init_env: clean goDeps tun2socksBinaryDeps
 	@echo DONE
 
 install_android_sdk_ubuntu:
