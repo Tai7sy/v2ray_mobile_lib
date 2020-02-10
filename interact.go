@@ -8,10 +8,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/2dust/AndroidLibV2rayLite/CoreI"
-	"github.com/2dust/AndroidLibV2rayLite/Process/Escort"
-	"github.com/2dust/AndroidLibV2rayLite/VPN"
-	"github.com/2dust/AndroidLibV2rayLite/tun2socksBinary"
+	"github.com/Tai7sy/v2ray_android_lib/CoreI"
+	"github.com/Tai7sy/v2ray_android_lib/Process/Escort"
+	"github.com/Tai7sy/v2ray_android_lib/VPN"
+	"github.com/Tai7sy/v2ray_android_lib/tun2socksBinary"
 	mobasset "golang.org/x/mobile/asset"
 
 	v2core "v2ray.com/core"
