@@ -34,7 +34,14 @@ $NDK_HOME/ndk-build \
 	NDK_OUT=$TMPDIR/tmp \
 	APP_SHORT_COMMANDS=false LOCAL_SHORT_COMMANDS=false -B -j4
 
-tar cvfz $__dir/libtun2socks.so.tgz libs
+install -v -m755 libs/armeabi-v7a/tun2socks  $__dir/tun2socksBinarys/ArchDep/arm/ 
+install -v -m755 libs/arm64-v8a/tun2socks    $__dir/tun2socksBinarys/ArchDep/arm64/
+install -v -m755 libs/x86/tun2socks          $__dir/tun2socksBinarys/ArchDep/386/ 
+install -v -m755 libs/x86_64/tun2socks       $__dir/tun2socksBinarys/ArchDep/amd64/ 
+popd
+
+pushd $__dir/tun2socksBinarys
+make clean && make binarys
 popd
 
 rm -rf $TMPDIR
