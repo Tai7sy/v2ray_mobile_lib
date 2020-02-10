@@ -2,7 +2,7 @@ sudo: required
 language: go
 go:
   - "1.13"
-go_import_path: github.com/Tai7sy/v2ray_android_lib
+go_import_path: github.com/Tai7sy/v2ray_mobile_lib
 git:
   depth: 5
 addons:

@@ -1,4 +1,4 @@
-module github.com/Tai7sy/v2ray_android_lib
+module github.com/Tai7sy/v2ray_mobile_lib
 
 go 1.13
 

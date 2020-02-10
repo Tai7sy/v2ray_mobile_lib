@@ -2,7 +2,7 @@ BUILD_DIR=build
 IOS_ARTIFACT=$(BUILD_DIR)/libv2ray.framework
 ANDROID_ARTIFACT=$(BUILD_DIR)/libv2ray.aar
 LDFLAGS="-s -w"
-IMPORT_PATH=github.com/Tai7sy/v2ray_android_lib
+IMPORT_PATH=github.com/Tai7sy/v2ray_mobile_lib
 
 goDeps:
 	go get -d ./...
@@ -22,9 +22,11 @@ install_android_sdk_ubuntu:
 	ls ~/android-sdk-linux/
 
 build_android:
+	mkdir -p $(BUILD_DIR)
 	gomobile bind -a -ldflags $(LDFLAGS) -tags json -target=android -o $(ANDROID_ARTIFACT) $(IMPORT_PATH)
 
 build_ios:
+	mkdir -p $(BUILD_DIR)
 	gomobile bind -a -ldflags $(LDFLAGS) -tags json -target=ios -o $(IOS_ARTIFACT) $(IMPORT_PATH)
 
 clean:
