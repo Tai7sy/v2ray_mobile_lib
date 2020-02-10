@@ -3,6 +3,7 @@ module github.com/Tai7sy/v2ray_mobile_lib
 go 1.13
 
 require (
+	github.com/jteeuwen/go-bindata v3.0.7+incompatible // indirect
 	go.starlark.net v0.0.0-20200203144150-6677ee5c7211 // indirect
 	golang.org/x/mobile v0.0.0-20200205170228-0df4eb238546
 	golang.org/x/sys v0.0.0-20191002063906-3421d5a6bb1c

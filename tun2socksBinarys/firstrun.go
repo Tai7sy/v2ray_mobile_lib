@@ -1,4 +1,4 @@
-package tun2socksBinary
+package tun2socksBinarys
 
 import (	
 	"log"
