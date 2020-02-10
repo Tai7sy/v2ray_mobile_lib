@@ -1,4 +1,4 @@
-module github.com/2dust/AndroidLibV2rayLite
+module github.com/Tai7sy/v2ray_android_lib
 
 go 1.13
 

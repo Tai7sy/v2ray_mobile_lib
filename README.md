@@ -1,4 +1,4 @@
-# AndroidLibV2rayLite
+# v2ray_mobile_lib
 
 This library is used in [V2RayNG](https://github.com/Tai7sy/V2RayNG) for support V2Ray.
 
