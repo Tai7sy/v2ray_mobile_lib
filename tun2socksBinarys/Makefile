@@ -10,4 +10,4 @@ binarys:deps $(Platdep)
 	@echo "Done"
 
 clean:
-	-rm binary*
+	-rm -f binary*
