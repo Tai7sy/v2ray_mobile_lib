@@ -17,7 +17,7 @@ init_env: clean goDeps tun2socksBinarys
 	@echo DONE
 
 install_android_sdk_ubuntu:
-	cd ~ ;curl -L https://raw.githubusercontent.com/Tai7sy/AndroidLibV2rayLite/master/.scripts/ubuntu-cli-install-android-sdk.sh | sudo bash -
+	cd ~ ;curl -L https://raw.githubusercontent.com/Tai7sy/v2ray_mobile_lib/master/.scripts/ubuntu-cli-install-android-sdk.sh | sudo bash -
 	ls ~
 	ls ~/android-sdk-linux/
 
