@@ -1,6 +1,8 @@
 # v2ray_mobile_lib
 
-This library is used in [V2RayNG](https://github.com/Tai7sy/V2RayNG) for support V2Ray.
+This library is used in [V2RayNG-android](https://github.com/Tai7sy/V2RayNG) for support V2Ray.
+
+This library is used in [V2RayNG-iOS](https://github.com/Tai7sy/V2RayNG-iOS) for support V2Ray.
 
 ## Setup
 
@@ -19,7 +21,7 @@ export ANDROID_NDK_HOME=/path/to/Android/android-ndk-r20b
 # Build an AAR
 make build_android
 
-# Build a Framework (not test)
+# Build a Framework
 make build_ios
 
 ```
