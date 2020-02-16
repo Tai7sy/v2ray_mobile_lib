@@ -225,6 +225,11 @@ func NewV2RayPoint(s V2RayVPNServiceSupportsSet) *V2RayPoint {
 }
 
 func (v V2RayPoint) runTun2socks() error {
+	if v.status.PackageName == "ios" {
+		// ios 无法创建子进程, 使用内置的tun2socks
+		return nil
+	}
+
 	shipb := tun2socksBinarys.FirstRun{Status: v.status}
 	if err := shipb.CheckAndExport(); err != nil {
 		log.Println(err)
