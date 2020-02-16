@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime/debug"
 	"strings"
 	"sync"
 
@@ -227,6 +228,9 @@ func NewV2RayPoint(s V2RayVPNServiceSupportsSet) *V2RayPoint {
 func (v V2RayPoint) runTun2socks() error {
 	if v.status.PackageName == "ios" {
 		// ios 无法创建子进程, 使用内置的tun2socks
+
+		// ios 内存限制很严格, 加快gc速度
+		debug.SetGCPercent(10)
 		return nil
 	}
 
