@@ -23,11 +23,11 @@ install_android_sdk_ubuntu:
 
 build_android:
 	mkdir -p $(BUILD_DIR)
-	gomobile bind -a -ldflags $(LDFLAGS) -tags json -target=android -o $(ANDROID_ARTIFACT) $(IMPORT_PATH)
+	gomobile bind -a -ldflags $(LDFLAGS) -tags android -target=android -o $(ANDROID_ARTIFACT) $(IMPORT_PATH)
 
 build_ios:
 	mkdir -p $(BUILD_DIR)
-	gomobile bind -a -ldflags $(LDFLAGS) -tags json -target=ios -o $(IOS_ARTIFACT) $(IMPORT_PATH)
+	gomobile bind -a -ldflags $(LDFLAGS) -tags ios -target=ios -o $(IOS_ARTIFACT) $(IMPORT_PATH)
 
 clean:
 	rm -rf $(BUILD_DIR)
