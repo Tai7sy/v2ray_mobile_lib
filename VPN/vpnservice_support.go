@@ -68,8 +68,8 @@ func (r *resolved) currentIP() net.IP {
 	return nil
 }
 
-// NewPreotectedDialer ...
-func NewPreotectedDialer(p protectSet) *ProtectedDialer {
+// NewProtectedDialer ...
+func NewProtectedDialer(p protectSet) *ProtectedDialer {
 	d := &ProtectedDialer{
 		// prefer native lookup on Android
 		resolver:   &net.Resolver{PreferGo: false},
@@ -227,6 +227,7 @@ func (d *ProtectedDialer) Dial(ctx context.Context,
 		return conn, nil
 	}
 
+	// warning: if v2ray-core use a proxy-chain, will alawys not prepared!
 	// v2ray connecting to "domestic" servers, no caching results
 	log.Printf("Not Using Prepared: %s,%s", network, Address)
 	resolved, err := d.lookupAddr(Address)

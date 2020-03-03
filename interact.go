@@ -5,12 +5,10 @@ import (
 	"io"
 	"log"
 	"os"
-	"runtime/debug"
 	"strings"
 	"sync"
 
 	"github.com/Tai7sy/v2ray_mobile_lib/CoreI"
-	"github.com/Tai7sy/v2ray_mobile_lib/Process/Escort"
 	"github.com/Tai7sy/v2ray_mobile_lib/VPN"
 	"github.com/Tai7sy/v2ray_mobile_lib/tun2socksBinarys"
 	mobasset "golang.org/x/mobile/asset"
@@ -19,7 +17,6 @@ import (
 	v2filesystem "v2ray.com/core/common/platform/filesystem"
 	v2stats "v2ray.com/core/features/stats"
 	v2serial "v2ray.com/core/infra/conf/serial"
-	_ "v2ray.com/core/main/distro/all"
 	v2internet "v2ray.com/core/transport/internet"
 
 	v2applog "v2ray.com/core/app/log"
@@ -27,8 +24,8 @@ import (
 )
 
 const (
-	v2Assert    = "v2ray.location.asset"
-	assetperfix = "/dev/libv2rayfs0/asset"
+	v2Assert     = "v2ray.location.asset"
+	assetsPrefix = "/dev/libv2rayfs0/assets/"
 )
 
 /*V2RayPoint V2Ray Point Server
@@ -40,7 +37,8 @@ type V2RayPoint struct {
 
 	dialer    *VPN.ProtectedDialer
 	status    *CoreI.Status
-	escorter  *Escort.Escorting
+	tun2socks *tun2socksBinarys.Tun2SocksRun
+
 	v2rayOP   *sync.Mutex
 	closeChan chan struct{}
 
@@ -61,8 +59,9 @@ type V2RayVPNServiceSupportsSet interface {
 	SendFd() int
 }
 
-/*RunLoop Run V2Ray main loop
- */
+/*
+RunLoop Run V2Ray main loop
+*/
 func (v *V2RayPoint) RunLoop() (err error) {
 	v.v2rayOP.Lock()
 	defer v.v2rayOP.Unlock()
@@ -70,24 +69,28 @@ func (v *V2RayPoint) RunLoop() (err error) {
 	v.status.PackageName = v.PackageName
 
 	if !v.status.IsRunning {
-		v.closeChan = make(chan struct{})
-		v.dialer.PrepareResolveChan()
-		go v.dialer.PrepareDomain(v.DomainName, v.closeChan)
-		go func() {
-			select {
-			// wait until resolved
-			case <-v.dialer.ResolveChan():
-				// shutdown VPNService if server name can not reolved
-				if !v.dialer.IsVServerReady() {
-					log.Println("vServer cannot resolved, shutdown")
-					v.StopLoop()
-					v.SupportSet.Shutdown()
-				}
 
-			// stop waiting if manually closed
-			case <-v.closeChan:
-			}
-		}()
+		// use protected dialer, prepare resolver
+		if v.dialer != nil {
+			v.closeChan = make(chan struct{})
+			v.dialer.PrepareResolveChan()
+			go v.dialer.PrepareDomain(v.DomainName, v.closeChan)
+			go func() {
+				select {
+				// wait until resolved
+				case <-v.dialer.ResolveChan():
+					// shutdown VPNService if server name can not reolved
+					if !v.dialer.IsVServerReady() {
+						log.Println("vServer cannot resolved, shutdown")
+						v.StopLoop()
+						v.SupportSet.Shutdown()
+					}
+
+				// stop waiting if manually closed
+				case <-v.closeChan:
+				}
+			}()
+		}
 
 		err = v.pointloop()
 	}
@@ -100,7 +103,9 @@ func (v *V2RayPoint) StopLoop() (err error) {
 	v.v2rayOP.Lock()
 	defer v.v2rayOP.Unlock()
 	if v.status.IsRunning {
-		close(v.closeChan)
+		if v.closeChan != nil {
+			close(v.closeChan)
+		}
 		v.shutdownInit()
 		v.SupportSet.OnEmitStatus(0, "Closed")
 	}
@@ -129,11 +134,11 @@ func (v *V2RayPoint) shutdownInit() {
 	v.status.Vpoint.Close()
 	v.status.Vpoint = nil
 	v.statsManager = nil
-	v.escorter.EscortingDown()
+	v.tun2socks.Close()
 }
 
 func (v *V2RayPoint) pointloop() error {
-	if err := v.runTun2socks(); err != nil {
+	if err := v.tun2socks.Run(v.SupportSet.SendFd); err != nil {
 		log.Println(err)
 		return err
 	}
@@ -173,80 +178,68 @@ func (v *V2RayPoint) pointloop() error {
 	return nil
 }
 
-func initV2Env() {
+func initV2Env(assetsDirectory string) {
 	if os.Getenv(v2Assert) != "" {
 		return
 	}
-	//Initialize asset API, Since Raymond Will not let notify the asset location inside Process,
-	//We need to set location outside V2Ray
-	os.Setenv(v2Assert, assetperfix)
-	//Now we handle read
-	v2filesystem.NewFileReader = func(path string) (io.ReadCloser, error) {
-		if strings.HasPrefix(path, assetperfix) {
-			p := path[len(assetperfix)+1:]
-			//is it overridden?
-			//by, ok := overridedAssets[p]
-			//if ok {
-			//	return os.Open(by)
-			//}
-			return mobasset.Open(p)
+	if assetsDirectory != "" {
+		os.Setenv(v2Assert, assetsDirectory)
+	} else {
+		//Initialize asset API, Since Raymond Will not let notify the asset location inside Process,
+		//We need to set location outside V2Ray
+		os.Setenv(v2Assert, assetsPrefix)
+		//Now we handle the read
+		v2filesystem.NewFileReader = func(path string) (io.ReadCloser, error) {
+			if strings.HasPrefix(path, assetsPrefix) {
+				p := path[len(assetsPrefix)+1:]
+				//is it overridden?
+				//by, ok := overridedAssets[p]
+				//if ok {
+				//	return os.Open(by)
+				//}
+				// https://stackoverflow.com/questions/49412762/gomobile-how-to-embed-assets-in-apk
+				return mobasset.Open(p)
+			}
+			return os.Open(path)
 		}
-		return os.Open(path)
 	}
 }
 
 //Delegate Funcation
 func TestConfig(ConfigureFileContent string) error {
-	initV2Env()
+	initV2Env("")
 	_, err := v2serial.LoadJSONConfig(strings.NewReader(ConfigureFileContent))
 	return err
 }
 
 /*NewV2RayPoint new V2RayPoint*/
-func NewV2RayPoint(s V2RayVPNServiceSupportsSet) *V2RayPoint {
-	initV2Env()
+func NewV2RayPoint(s V2RayVPNServiceSupportsSet, assetsDirectory string, protectedDialer bool) *V2RayPoint {
+
+	if assetsDirectory != "" {
+		initV2Env(assetsDirectory)
+	} else {
+		initV2Env("")
+	}
 
 	// inject our own log writer
 	v2applog.RegisterHandlerCreator(v2applog.LogType_Console,
-		func(lt v2applog.LogType,
-			options v2applog.HandlerCreatorOptions) (v2commlog.Handler, error) {
+		func(lt v2applog.LogType, options v2applog.HandlerCreatorOptions) (v2commlog.Handler, error) {
 			return v2commlog.NewLogger(createStdoutLogWriter()), nil
 		})
 
-	dialer := VPN.NewPreotectedDialer(s)
-	v2internet.UseAlternativeSystemDialer(dialer)
 	status := &CoreI.Status{}
-	return &V2RayPoint{
+	point := &V2RayPoint{
 		SupportSet: s,
 		v2rayOP:    new(sync.Mutex),
 		status:     status,
-		dialer:     dialer,
-		escorter:   &Escort.Escorting{Status: status},
+		tun2socks:  &tun2socksBinarys.Tun2SocksRun{Status: status},
 	}
-}
-
-func (v V2RayPoint) runTun2socks() error {
-	if v.status.PackageName == "ios" {
-		// ios 无法创建子进程, 使用内置的tun2socks
-
-		// ios 内存限制很严格, 加快gc速度
-		debug.SetGCPercent(10)
-		return nil
+	// use protected dialer to connect server directly without vpn
+	if protectedDialer {
+		point.dialer = VPN.NewProtectedDialer(s)
+		v2internet.UseAlternativeSystemDialer(point.dialer)
 	}
-
-	shipb := tun2socksBinarys.FirstRun{Status: v.status}
-	if err := shipb.CheckAndExport(); err != nil {
-		log.Println(err)
-		return err
-	}
-
-	v.escorter.EscortingUp()
-	go v.escorter.EscortRun(
-		v.status.GetApp("tun2socks"),
-		v.status.GetTun2socksArgs(v.EnableLocalDNS, v.ForwardIpv6), "",
-		v.SupportSet.SendFd)
-
-	return nil
+	return point
 }
 
 /*CheckVersion int
