@@ -2,17 +2,18 @@ package libv2ray
 
 import (
 	"fmt"
+	"github.com/Tai7sy/v2ray_mobile_lib/VPN"
+	"github.com/Tai7sy/v2ray_mobile_lib/status"
+	"github.com/Tai7sy/v2ray_mobile_lib/tun2socksBinarys"
+	_ "github.com/Tai7sy/v2ray_mobile_lib/v2ray"
+	assets "golang.org/x/mobile/asset"
 	"io"
 	"log"
 	"os"
+	"runtime"
+	"runtime/debug"
 	"strings"
 	"sync"
-
-	"github.com/Tai7sy/v2ray_mobile_lib/CoreI"
-	"github.com/Tai7sy/v2ray_mobile_lib/VPN"
-	"github.com/Tai7sy/v2ray_mobile_lib/tun2socksBinarys"
-	mobasset "golang.org/x/mobile/asset"
-
 	v2core "v2ray.com/core"
 	v2filesystem "v2ray.com/core/common/platform/filesystem"
 	v2stats "v2ray.com/core/features/stats"
@@ -36,7 +37,7 @@ type V2RayPoint struct {
 	statsManager v2stats.Manager
 
 	dialer    *VPN.ProtectedDialer
-	status    *CoreI.Status
+	status    *status.Status
 	tun2socks *tun2socksBinarys.Tun2SocksRun
 
 	v2rayOP   *sync.Mutex
@@ -82,7 +83,7 @@ func (v *V2RayPoint) RunLoop() (err error) {
 					// shutdown VPNService if server name can not reolved
 					if !v.dialer.IsVServerReady() {
 						log.Println("vServer cannot resolved, shutdown")
-						v.StopLoop()
+						_ = v.StopLoop()
 						v.SupportSet.Shutdown()
 					}
 
@@ -92,7 +93,7 @@ func (v *V2RayPoint) RunLoop() (err error) {
 			}()
 		}
 
-		err = v.pointloop()
+		err = v.pointLoop()
 	}
 	return
 }
@@ -131,13 +132,13 @@ func (v V2RayPoint) QueryStats(tag string, direct string) int64 {
 
 func (v *V2RayPoint) shutdownInit() {
 	v.status.IsRunning = false
-	v.status.Vpoint.Close()
+	_ = v.status.Vpoint.Close()
 	v.status.Vpoint = nil
 	v.statsManager = nil
 	v.tun2socks.Close()
 }
 
-func (v *V2RayPoint) pointloop() error {
+func (v *V2RayPoint) pointLoop() error {
 	if err := v.tun2socks.Run(v.SupportSet.SendFd); err != nil {
 		log.Println(err)
 		return err
@@ -148,6 +149,7 @@ func (v *V2RayPoint) pointloop() error {
 		v.ForwardIpv6,
 		v.DomainName)
 
+	runtime.GC()
 	log.Println("loading v2ray config")
 	config, err := v2serial.LoadJSONConfig(strings.NewReader(v.ConfigureFileContent))
 	if err != nil {
@@ -155,6 +157,7 @@ func (v *V2RayPoint) pointloop() error {
 		return err
 	}
 
+	runtime.GC()
 	log.Println("new v2ray core")
 	inst, err := v2core.New(config)
 	if err != nil {
@@ -175,6 +178,11 @@ func (v *V2RayPoint) pointloop() error {
 	v.SupportSet.Prepare()
 	v.SupportSet.Setup(v.status.GetVPNSetupArg(v.EnableLocalDNS, v.ForwardIpv6))
 	v.SupportSet.OnEmitStatus(0, "Running")
+
+	if v.PackageName == "ios" {
+		// ios 内存限制很严格, 加快gc速度
+		debug.SetGCPercent(10)
+	}
 	return nil
 }
 
@@ -183,11 +191,11 @@ func initV2Env(assetsDirectory string) {
 		return
 	}
 	if assetsDirectory != "" {
-		os.Setenv(v2Assert, assetsDirectory)
+		_ = os.Setenv(v2Assert, assetsDirectory)
 	} else {
-		//Initialize asset API, Since Raymond Will not let notify the asset location inside Process,
+		//Initialize asset API, Since Raymond Will not let notify the asset location inside process,
 		//We need to set location outside V2Ray
-		os.Setenv(v2Assert, assetsPrefix)
+		_ = os.Setenv(v2Assert, assetsPrefix)
 		//Now we handle the read
 		v2filesystem.NewFileReader = func(path string) (io.ReadCloser, error) {
 			if strings.HasPrefix(path, assetsPrefix) {
@@ -198,14 +206,14 @@ func initV2Env(assetsDirectory string) {
 				//	return os.Open(by)
 				//}
 				// https://stackoverflow.com/questions/49412762/gomobile-how-to-embed-assets-in-apk
-				return mobasset.Open(p)
+				return assets.Open(p)
 			}
 			return os.Open(path)
 		}
 	}
 }
 
-//Delegate Funcation
+//Delegate Function
 func TestConfig(ConfigureFileContent string) error {
 	initV2Env("")
 	_, err := v2serial.LoadJSONConfig(strings.NewReader(ConfigureFileContent))
@@ -222,17 +230,17 @@ func NewV2RayPoint(s V2RayVPNServiceSupportsSet, assetsDirectory string, protect
 	}
 
 	// inject our own log writer
-	v2applog.RegisterHandlerCreator(v2applog.LogType_Console,
+	_ = v2applog.RegisterHandlerCreator(v2applog.LogType_Console,
 		func(lt v2applog.LogType, options v2applog.HandlerCreatorOptions) (v2commlog.Handler, error) {
 			return v2commlog.NewLogger(createStdoutLogWriter()), nil
 		})
 
-	status := &CoreI.Status{}
+	selfStatus := &status.Status{}
 	point := &V2RayPoint{
 		SupportSet: s,
 		v2rayOP:    new(sync.Mutex),
-		status:     status,
-		tun2socks:  &tun2socksBinarys.Tun2SocksRun{Status: status},
+		status:     selfStatus,
+		tun2socks:  &tun2socksBinarys.Tun2SocksRun{Status: selfStatus},
 	}
 	// use protected dialer to connect server directly without vpn
 	if protectedDialer {
@@ -242,14 +250,16 @@ func NewV2RayPoint(s V2RayVPNServiceSupportsSet, assetsDirectory string, protect
 	return point
 }
 
-/*CheckVersion int
+/*
+CheckVersion int
 This func will return libv2ray binding version.
 */
 func CheckVersion() int {
-	return CoreI.CheckVersion()
+	return status.CheckVersion()
 }
 
-/*CheckVersionX string
+/*
+CheckVersionX string
 This func will return libv2ray binding version and V2Ray version used.
 */
 func CheckVersionX() string {

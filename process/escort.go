@@ -1,4 +1,4 @@
-package Escort
+package process
 
 import (
 	"os"
@@ -7,7 +7,7 @@ import (
 
 	"log"
 
-	"github.com/Tai7sy/v2ray_mobile_lib/CoreI"
+	"github.com/Tai7sy/v2ray_mobile_lib/status"
 )
 
 func (v *Escorting) EscortRun(proc string, pt []string, additionalEnv string, sendFd func() int) {
@@ -83,5 +83,5 @@ func (v *Escorting) EscortingDown() {
 
 type Escorting struct {
 	escortProcess *[](*os.Process)
-	Status        *CoreI.Status
+	Status        *status.Status
 }

@@ -1,25 +1,24 @@
-// +build android
 // +build !ios
 
 package tun2socksBinarys
 
 import (
+	"github.com/Tai7sy/v2ray_mobile_lib/process"
 	"log"
 	"os"
 	"strconv"
 
-	"github.com/Tai7sy/v2ray_mobile_lib/CoreI"
-	"github.com/Tai7sy/v2ray_mobile_lib/Process/Escort"
+	"github.com/Tai7sy/v2ray_mobile_lib/status"
 )
 
 type Tun2SocksRun struct {
-	Status   *CoreI.Status
-	escorter *Escort.Escorting
+	Status   *status.Status
+	escorter *process.Escorting
 }
 
 func (v *Tun2SocksRun) checkIfRcExist() error {
 	datadir := v.Status.GetDataDir()
-	if _, err := os.Stat(datadir + strconv.Itoa(CoreI.CheckVersion())); !os.IsNotExist(err) {
+	if _, err := os.Stat(datadir + strconv.Itoa(status.CheckVersion())); !os.IsNotExist(err) {
 		log.Println("file exists")
 		return nil
 	}
@@ -61,7 +60,7 @@ func (v *Tun2SocksRun) checkIfRcExist() error {
 			log.Println(os.Symlink(datadir+"ArchDep/"+fn+"/"+FND, datadir+FND))
 		}
 	}
-	s, _ := os.Create(datadir + strconv.Itoa(CoreI.CheckVersion()))
+	s, _ := os.Create(datadir + strconv.Itoa(status.CheckVersion()))
 	s.Close()
 
 	return nil
@@ -76,7 +75,7 @@ func (v *Tun2SocksRun) Run(sendFd func() int) error {
 		log.Println(err)
 		return err
 	}
-	v.escorter = &Escort.Escorting{Status: v.Status}
+	v.escorter = &process.Escorting{Status: v.Status}
 	v.escorter.EscortingUp()
 
 	go v.escorter.EscortRun(

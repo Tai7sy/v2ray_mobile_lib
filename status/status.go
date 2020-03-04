@@ -1,4 +1,4 @@
-package CoreI
+package status
 
 import (
 	v2core "v2ray.com/core"
