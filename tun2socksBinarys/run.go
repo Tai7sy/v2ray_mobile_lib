@@ -14,6 +14,8 @@ import (
 type Tun2SocksRun struct {
 	Status   *status.Status
 	escorter *process.Escorting
+	EnableLocalDNS       bool
+	ForwardIpv6          bool
 }
 
 func (v *Tun2SocksRun) checkIfRcExist() error {
@@ -81,7 +83,8 @@ func (v *Tun2SocksRun) Run(sendFd func() int) error {
 	go v.escorter.EscortRun(
 		v.Status.GetApp("tun2socks"),
 		v.Status.GetTun2socksArgs(v.EnableLocalDNS, v.ForwardIpv6), "",
-		SendFd)
+		sendFd)
+	return nil
 }
 
 func (v *Tun2SocksRun) Close() {
