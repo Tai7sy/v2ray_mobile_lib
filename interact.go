@@ -26,7 +26,7 @@ import (
 
 const (
 	v2Assert     = "v2ray.location.asset"
-	assetsPrefix = "/dev/libv2rayfs0/assets/"
+	assetsPrefix = "/dev/libv2rayfs0/assets"
 )
 
 /*V2RayPoint V2Ray Point Server
@@ -191,8 +191,10 @@ func initV2Env(assetsDirectory string) {
 		return
 	}
 	if assetsDirectory != "" {
+		// ios version, we pass assets path directly
 		_ = os.Setenv(v2Assert, assetsDirectory)
 	} else {
+		// android
 		//Initialize asset API, Since Raymond Will not let notify the asset location inside process,
 		//We need to set location outside V2Ray
 		_ = os.Setenv(v2Assert, assetsPrefix)
@@ -223,11 +225,7 @@ func TestConfig(ConfigureFileContent string) error {
 /*NewV2RayPoint new V2RayPoint*/
 func NewV2RayPoint(s V2RayVPNServiceSupportsSet, assetsDirectory string, protectedDialer bool) *V2RayPoint {
 
-	if assetsDirectory != "" {
-		initV2Env(assetsDirectory)
-	} else {
-		initV2Env("")
-	}
+	initV2Env(assetsDirectory)
 
 	// inject our own log writer
 	_ = v2applog.RegisterHandlerCreator(v2applog.LogType_Console,
