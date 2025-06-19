@@ -178,14 +178,28 @@ func (d *ProtectedDialer) PrepareDomain(domainName string, closeCh <-chan struct
 	}
 }
 
-func (d *ProtectedDialer) getFd(network v2net.Network) (fd int, err error) {
+func (d *ProtectedDialer) getFd(network v2net.Network, isIPv4 bool) (fd int, err error) {
 	switch network {
 	case v2net.Network_TCP:
-		fd, err = unix.Socket(unix.AF_INET6, unix.SOCK_STREAM, unix.IPPROTO_TCP)
+		if isIPv4 {
+			fd, err = unix.Socket(unix.AF_INET, unix.SOCK_STREAM, unix.IPPROTO_TCP)
+		} else {
+			fd, err = unix.Socket(unix.AF_INET6, unix.SOCK_STREAM, unix.IPPROTO_TCP)
+		}
+		if err != nil {
+			log.Printf("Failed to create socket: %v", err)
+		}
 	case v2net.Network_UDP:
-		fd, err = unix.Socket(unix.AF_INET6, unix.SOCK_DGRAM, unix.IPPROTO_UDP)
+		if isIPv4 {
+			fd, err = unix.Socket(unix.AF_INET, unix.SOCK_DGRAM, unix.IPPROTO_UDP)
+		} else {
+			fd, err = unix.Socket(unix.AF_INET6, unix.SOCK_DGRAM, unix.IPPROTO_UDP)
+		}
+		if err != nil {
+			log.Printf("Failed to create socket: %v", err)
+		}
 	default:
-		err = fmt.Errorf("unknow network")
+		err = fmt.Errorf("unknown network")
 	}
 	return
 }
@@ -211,19 +225,22 @@ func (d *ProtectedDialer) Dial(ctx context.Context,
 				return nil, fmt.Errorf("fail to prepare domain %s", d.currentServer)
 			}
 		}
+		
+		curIP := d.vServer.currentIP()
+		log.Printf("Using Prepared: %s : %d", curIP, d.vServer.Port)
 
-		fd, err := d.getFd(dest.Network)
+		isIPv4 := curIP.To4() != nil
+		fd, err := d.getFd(dest.Network, isIPv4)
 		if err != nil {
 			return nil, err
 		}
 
-		curIP := d.vServer.currentIP()
 		conn, err := d.fdConn(ctx, curIP, d.vServer.Port, fd)
 		if err != nil {
 			d.vServer.NextIP()
+			log.Printf("fdConn err: %v, try next IP", err)
 			return nil, err
 		}
-		log.Printf("Using Prepared: %s", curIP)
 		return conn, nil
 	}
 
@@ -235,7 +252,8 @@ func (d *ProtectedDialer) Dial(ctx context.Context,
 		return nil, err
 	}
 
-	fd, err := d.getFd(dest.Network)
+	isIPv4 := resolved.IPs[0].To4() != nil
+	fd, err := d.getFd(dest.Network, isIPv4)
 	if err != nil {
 		return nil, err
 	}
@@ -252,12 +270,22 @@ func (d *ProtectedDialer) fdConn(ctx context.Context, ip net.IP, port int, fd in
 	// call android VPN service to "protect" the fd connecting straight out
 	d.Protect(fd)
 
-	sa := &unix.SockaddrInet6{
-		Port: port,
+	var err error
+	if ip.To4() != nil {
+		sa := &unix.SockaddrInet4{
+			Port: port,
+		}
+		copy(sa.Addr[:], ip.To4())
+		err = unix.Connect(fd, sa)
+	} else {
+		sa := &unix.SockaddrInet6{
+			Port: port,
+		}
+		copy(sa.Addr[:], ip)
+		err = unix.Connect(fd, sa)
 	}
-	copy(sa.Addr[:], ip)
 
-	if err := unix.Connect(fd, sa); err != nil {
+	if err != nil {
 		log.Printf("fdConn unix.Connect err, Close Fd: %d Err: %v", fd, err)
 		return nil, err
 	}
@@ -265,6 +293,7 @@ func (d *ProtectedDialer) fdConn(ctx context.Context, ip net.IP, port int, fd in
 	file := os.NewFile(uintptr(fd), "Socket")
 	if file == nil {
 		// returned value will be nil if fd is not a valid file descriptor
+		log.Printf("fdConn fd invalid: %d", fd)
 		return nil, errors.New("fdConn fd invalid")
 	}
 
@@ -276,5 +305,6 @@ func (d *ProtectedDialer) fdConn(ctx context.Context, ip net.IP, port int, fd in
 		return nil, err
 	}
 
+	log.Printf("fdConn connection successful to %s:%d", ip, port)
 	return conn, nil
 }
