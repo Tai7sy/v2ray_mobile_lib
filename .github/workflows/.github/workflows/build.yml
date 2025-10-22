@@ -1,0 +1,31 @@
+name: Build V2Ray AAR
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y make unzip
+
+      - name: Init environment
+        run: make init_env
+
+      - name: Build Android AAR
+        run: make build_android
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: v2ray-mobile-lib
+          path: build/**/*.aar
