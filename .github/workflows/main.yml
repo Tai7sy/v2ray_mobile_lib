@@ -1,0 +1,32 @@
+name: Build AAR
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup Gradle
+      uses: gradle/gradle-build-action@v3
+
+    - name: Build AAR
+      run: |
+        gradle assembleRelease
+
+    - name: Upload AAR
+      uses: actions/upload-artifact@v4
+      with:
+        name: aar-output
+        path: '**/*.aar'
